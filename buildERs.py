@@ -6,8 +6,8 @@ Program to setup various ER formats to analyze performance of comparing ERs
 (dot products)
 
 v1 - Initial cut
-        erDict = dictionary of various ER formats
-                'name' : <name_of_format
+        erDict['name'] = dictionary of various ER formats
+                'descriptione' : deswcription of format
                 'er1'  : first_ER
                 'er2'  : second_ER
         formatTypes = [ list of above 'name' keys to use in the anlysis]
@@ -15,56 +15,71 @@ v1 - Initial cut
         
 """
 
-import requests,time,random,pickle
-import sys
+import time,datetime,random, sys
 from statistics import mean,stdev
-sys.path.append('c:/users/talan/documents/krune_git/gandemo')
+from bitarray import bitarray
+sys.path.append('c:/users/talan/documents/krune_git/ganDemo')
 # from extAssocMemV13 import AssocMem, AssocMemItem
-from fileDialogs import App
-from operator import itemgetter,attrgetter
+# from fileDialogs import App
 
 
-def buildBasicERs(erSize1,erSize2,nodePool,iterations):
+
+def buildBasicERs(erSize1,erSize2,nodePool,quantity):
     baseERs1 = []
     baseERs2 = []
-    for i in range(0,iterations):
+    for i in range(0,quantity):
         baseERs1.append(random.sample(range(0,nodePool),erSize1))
-        baseERs2.append(random.sample(range(0,nodePool),erSize2))
+        # print("baseERs[",i,"]: ",baseERs1[i])
+        saveQty = max(2,int(erSize1/4))
+        savePlace = random.randrange(erSize1-saveQty)
+        saveNodes = baseERs1[i][savePlace:savePlace+saveQty]
+        # print("saveQty/Place/Nodes: ",saveQty,savePlace,saveNodes)
+        baseERs2.append(saveNodes + random.sample(range(0,nodePool),erSize2-saveQty))
+        # print("baseERs[",i,"]: ",baseERs2[i])
     return baseERs1,baseERs2
 
 def buildSetizedERs(listERs1,listERs2):
     setERs1 = []
     setERs2 = []
     for i in range(0,len(listERs1)):
-        setERs1.append(set(listERs1))
+        setERs1.append(set(listERs1[i]))
     for i in range(0,len(listERs2)):
-        setERs2.append(set(listERs2))
+        setERs2.append(set(listERs2[i]))
     return setERs1,setERs2
 
 def buildSortedListERs(baseERs1,baseERs2):
     sortedERs1 = []
     sortedERs2 = []
     for i in range(0,len(baseERs1)):
-        sortedERs1.append(sorted(baseERs1))
+        sortedERs1.append(sorted(baseERs1[i]))
     for i in range(0,len(baseERs2)):
-        sortedERs2.append(sorted(baseERs2))
+        sortedERs2.append(sorted(baseERs2[i]))
     return sortedERs1,sortedERs2
 
 def buildBitArrayERs(baseERs1,baseERs2,nodePool):
-    bitArrayERs1 = nodePool * bitArray('0')
-    bitArrayERs2 = nodePool * bitArray('0')
-    for item in baseERs1:
-        bitArrayERs1[item] = '1'
-    for item in baseERs2:
-        bitArrayERs2[item] = '1'
+    bitArrayERs1 = []
+    bitArrayERs2 = []
+    for i in range(0,len(baseERs1)):
+        bitArray = nodePool * bitarray('0')
+        for item in baseERs1[i]:
+            bitArray[item] = True
+        bitArrayERs1.append(bitArray)
+    for i in range(0,len(baseERs2)):
+        bitArray = nodePool * bitarray('0')
+        for item in baseERs2[i]:
+            bitArray[item] = True
+        bitArrayERs2.append(bitArray)
     return bitArrayERs1,bitArrayERs2
+
 
 def compareListERs(listERs1,listERs2):
     # this routine uses unsorted lists, and 'if short list item in longList'
-    count = 0
-    startTime = time.time_ns()
-    overallStart = time.time_ns()
+    counts = [0 for _ in range(0,len(listERs1))]
+    durations = []
+    overallStartTime = time.time_ns()
     for i in range(0,len(listERs1)):
+        startTime = time.time_ns()
+        # print("startTime: ",startTime)
         if len(listERs1[i]) < len(listERs2[i]):
             shortER = listERs1[i]
             longER = listERs2[i]
@@ -73,47 +88,49 @@ def compareListERs(listERs1,listERs2):
             longER = listERs1[i]
         for item in shortER:
             if item in longER:
-                count += 1
+                counts[i] += 1
         finishTime = time.time_ns()
-        duration = (finishTime - startTime).microseconds
+        # print("finishTime: ",finishTime)
+        duration = (finishTime - startTime)    # naonseconds
+        durations.append(duration)
     overallFinishTime = time.time_ns()
-    overallDuration = (OverallFinishTime - OverallStartTime).microseconds 
-    return count,duration,overallDuration
+    overallDuration = (overallFinishTime - overallStartTime)   # naonseconds 
+    return counts,durations,overallDuration
 
-def compareSetERs(setERs1,setER2s):
+def compareSetERs(setERs1,setERs2):
     # this routine uses unsorted set, and 'if short set item in longSet'
-    counts = []
+    counts = [0 for _ in range(0,len(setERs1))]
     durations = []
-    overallStart = time.time_ns()
+    overallStartTime = time.time_ns()
     for i in range(0,len(setERs1)):
         startTime = time.time_ns()
         if len(setERs1[i]) < len(setERs2[i]):
-            shortER = setER1[i]
-            longER = setER2[i]
+            shortER = setERs1[i]
+            longER = setERs2[i]
         else:
             shortER = setERs2[i]
             longER = setERs1[i]
         for item in shortER:
             if item in longER:
-                count += 1
+                counts[i] += 1
         finishTime = time.time_ns()
-        duration.append(finishTime - startTime).microseconds
+        durations.append(finishTime - startTime)     # naonseconds
     overallFinishTime = time.time_ns()
-    overallDuration = (OverallFinishTime - OverallStartTime).microseconds            
+    overallDuration = (overallFinishTime - overallStartTime)   # naonseconds            
     return counts,durations,overallDuration
     
-def compareBitArrayERs(bitArrayER1,bitArrayER2):
+def compareBitArrayERs(bitArrayERs1,bitArrayERs2):
     counts = []
     durations = []
-    overallStart = time.time_ns()
+    overallStartTime = time.time_ns()
     for i in range(0,len(bitArrayERs1)):
         startTime = time.time_ns()
-        result = bitArrayER1 & bitArrayER2
+        result = bitArrayERs1[i] & bitArrayERs2[i]
         finishTime = time.time_ns()
         counts.append(result.count())
-        duration.append((finishTime - startTime).microseconds)
+        durations.append(finishTime - startTime)    # naonseconds
     overallFinishTime = time.time_ns()
-    overallDuration = (OverallFinishTime - OverallStartTime).microseconds
+    overallDuration = (overallFinishTime - overallStartTime)   # naonseconds
     return counts,durations,overallDuration
 
 def binary_search(arr, x,startAt=0):
@@ -132,10 +149,10 @@ def binary_search(arr, x,startAt=0):
             high = mid - 1
         # means x is present at mid
         else:
-            print("steps: ",steps)
+            # print("steps: ",steps)
             return mid, mid+1
     # If we reach here, then the element was not present
-    print("steps: ",steps)
+    # print("steps: ",steps)
     return -1, low
 
 def test_binary_search():
@@ -154,53 +171,176 @@ def test_binary_search():
         print("item: ",item," x/newLow: ",x,newLow)
         
         
+def comparePartiallySortedList(baseERs1,sortedERs2):
+    counts = [0 for _ in range(0,len(baseERs1))]
+    durations = []
+    overallStartTime = time.time_ns()
+    for i in range(0,len(baseERs1)): 
+        startTime = time.time_ns()
+        a = baseERs1[i]
+        b = sortedERs2[i]
+        for item in a:
+            x,newLow = binary_search(b,item,startAt=0)
+            if x != -1:
+                counts[i] += 1
+        finishTime = time.time_ns()
+        durations.append(finishTime - startTime)      # naonseconds 
+    overallFinishTime = time.time_ns()
+    overallDuration = (overallFinishTime - overallStartTime)   # naonseconds
+    return counts,durations,overallDuration
+ 
+
+def compareSortedList(sortedERs1,sortedERs2):
+    counts = [0 for _ in range(0,len(sortedERs1))]
+    durations = []
+    overallStartTime = time.time_ns()
+    for i in range(0,len(sortedERs1)): 
+        startTime = time.time_ns()
+        a = sortedERs1[i]
+        b = sortedERs2[i]
+        newLow = 0
+        for item in a:
+            x,newLow = binary_search(b,item,startAt=newLow)
+            if x != -1:
+                counts[i] += 1
+        finishTime = time.time_ns()
+        durations.append(finishTime - startTime)      # naonseconds 
+    overallFinishTime = time.time_ns()
+    overallDuration = (overallFinishTime - overallStartTime)   # naonseconds
+    return counts,durations,overallDuration 
+
+
+     
 #########################################################################################
 
 
 def main():
     
-    test_binary_search()
+    # test_binary_search()
+    start = datetime.datetime.now()
+    print("start: ",start)
+    print("")
     
-    return
 
     erSizesList = [8,16,32,64,128,256,512,1024,2048,4096,8192,16384]
     nodePoolSizesList = [256,1024,4096,16384,65536]
     
     erDict = {}
-    iterations = 100
+    quantity = 100
+    
+    erSize1 = 1024
+    erSize2 = 1024
+    nodePool = 4096
     
     
     # base ERs
-    baseERs1, baseERs2 = buildBasicERs(erSize1,erSize2,nodePool,iterations)
-    erDict['baseERs'] = {'description':'unordered lists of nodes', \
+    baseERs1, baseERs2 = buildBasicERs(erSize1,erSize2,nodePool,quantity)
+    erDict['uoListERs'] = {'description':'unordered lists of nodes', \
                          'lengths':[erSize1,erSize2],'nodePool':nodePool, \
                          'ers':[baseERs1,baseERs2]}
     
-    # setized ERs
-    setERs1, setERs2 = buildSetizedERs(baseERs1,baseERs2)
-    erDict['baseERs'] = {'description':'unordered sets of nodes',\
-                         'lengths':[erSize1,erSize2],'nodePool':nodePool,\
-                         'ers': [setERs1,setER2]}    
-    
     # sorted List ERs
     sortedERs1,sortedERs2 = buildSortedListERs(baseERs1,baseERs2)
-    erDict['baseERs'] = {'description':'unordered lists of nodes',\
+    erDict['oListERs'] = {'description':'ordered lists of nodes',\
                          'lengths':[erSize1,erSize2],'nodePool':nodePool,\
                          'ers': [sortedERs1,sortedERs2]}  
-        
-    # sorted setized ERs
-    sortedSetERs1, sortedSetERs2 = buildSetizedERs(baseERs1,baseERs2)
-    erDict['baseERs'] = {'description':'ordered sets of nodes',\
+           
+    # setized ERs
+    setERs1, setERs2 = buildSetizedERs(baseERs1,baseERs2)
+    erDict['setERs'] = {'description':'sets of nodes',\
                          'lengths':[erSize1,erSize2],'nodePool':nodePool,\
-                         'ers': [baseER1,baseER2]}    
- 
+                         'ers': [setERs1,setERs2]}    
+
     # binary array ERs
-    bitArrayERs1, bitArrayERs2 = buildBinaryERs(baseERs1,baseERs2)
-    erDict['baseERs'] = {'description':'ordered sets of nodes',\
+    bitArrayERs1, bitArrayERs2 = buildBitArrayERs(baseERs1,baseERs2,nodePool)
+    erDict['bArrayERs'] = {'description':'bitArrays',\
                          'lengths':[erSize1,erSize2],'nodePool':nodePool,\
-                         'ers': [bitArrayER1,bitArrayER2]} 
+                         'ers': [bitArrayERs1,bitArrayERs2]} 
+      
+    # print("erDict: ",erDict)
+     
+    startComps = datetime.datetime.now()
+    print("startComps: ",startComps)
+    print("ersizes: ",erSize1,erSize2)
+    print("nodePool: ",nodePool)
+
+    # normal list compare
+    counts,durations,overallDuration = compareListERs(baseERs1,baseERs2)
+    meanDuration =mean(durations)/1000000
+    averageDuration = overallDuration/quantity/1000000
+    stdevDuration = stdev(durations)/1000000
+    print("")
+    print("list ER dot-product")
+    # print("counts/durations(ns): ",counts,durations)
+    print("  meanDuration(ms): ",meanDuration)
+    print("  stdevDuration(ms): ",stdevDuration)
+    print("  averageDuration(ms): ",averageDuration)
+    
+    
+    # set compare
+    counts,durations,overallDuration = compareSetERs(setERs1,setERs2)
+    meanDuration =mean(durations)/1000000
+    averageDuration = overallDuration/quantity/1000000
+    stdevDuration = stdev(durations)/1000000
+    print("")
+    print("Set ER dot-product")
+    # print("counts/durations(ns): ",counts,durations)
+    print("  meanDuration(ms): ",meanDuration)
+    print("  stdevDuration(ms): ",stdevDuration)
+    print("  averageDuration(ms): ",averageDuration)   
+    
+    
+    # partially sorted list compare - er1 non-sorted, er2 sorted; binary search
+    counts,durations,overallDuration = comparePartiallySortedList(baseERs1,sortedERs2)
+    meanDuration =mean(durations)/1000000
+    averageDuration = overallDuration/quantity/1000000
+    stdevDuration = stdev(durations)/1000000
+    print("")
+    print("Partially Sorted ER dot-product")
+    # print("counts/durations(ns): ",counts,durations)
+    print("  meanDuration(ms): ",meanDuration)
+    print("  stdevDuration(ms): ",stdevDuration)
+    print("  averageDuration(ms): ",averageDuration)      
+    
+    
+    # sorted list compare - er1 sorted, er2 sorted; modified binary search
+    counts,durations,overallDuration = compareSortedList(sortedERs1,sortedERs2)
+    meanDuration =mean(durations)/1000000
+    averageDuration = overallDuration/quantity/1000000
+    stdevDuration = stdev(durations)/1000000
+    print("")
+    print("Sorted ER dot-product")
+    # print("counts/durations(ns): ",counts,durations)
+    print("  meanDuration(ms): ",meanDuration)
+    print("  stdevDuration(ms): ",stdevDuration)
+    print("  averageDuration(ms): ",averageDuration)  
         
-        
+    
+    # bitarray compare
+    counts,durations,overallDuration = compareBitArrayERs(bitArrayERs1,bitArrayERs2)
+    meanDuration =mean(durations)/1000000
+    averageDuration = overallDuration/quantity/1000000
+    stdevDuration = stdev(durations)/1000000
+    print("")
+    print("Bitarray ER dot-product")
+    # print("counts/durations(ns): ",counts,durations)
+    print("  meanDuration(ms): ",meanDuration)
+    print("  stdevDuration(ms): ",stdevDuration)
+    print("  averageDuration(ms): ",averageDuration)   
+    
+    
+    
+    
+    print("")
+    print("startComps: ",startComps)
+    finish = datetime.datetime.now()
+    print("finish: ",finish)
+    duration = finish - startComps
+    print("duration: ",duration)
+    
+    
+    
+    
 ######################################
 
 if __name__ == "__main__":
