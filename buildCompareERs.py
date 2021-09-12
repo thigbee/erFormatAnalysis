@@ -18,7 +18,7 @@ v1 - Initial cut
 import time, datetime, random, sys, pickle
 from statistics import mean, stdev
 from bitarray import bitarray
-sys.path.append('c:/users/talan/documents/krune_git/ganDemo')
+# sys.path.append('c:/users/talan/documents/krune_git/ganDemo')
 # from extAssocMemV13 import AssocMem, AssocMemItem
 # from fileDialogs import App
 
@@ -236,6 +236,8 @@ def main():
     start = datetime.datetime.now()
     print("start: ",start)
     print("")
+    
+    
     
   
     erSizesList = [8,16,32,64,128,256,512,1024,2048,4096,8192,16384]
