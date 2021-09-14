@@ -68,7 +68,7 @@ def main():
     print("first time stats: ",timeStatsList[0])
     print("last time stats: ",timeStatsList[lenTimeStatsList-1])
 
-    # Create an new Excel file and add a worksheet.
+    # Create a new Excel file and add a worksheet.
     workbook = xlsxwriter.Workbook('data/erTimingData.xlsx')
     worksheet = workbook.add_worksheet()
     
@@ -107,6 +107,49 @@ def main():
         worksheet.write(i+1,13,item['setResults'][2])
         worksheet.write(i+1,14,item['bitArrayResults'][2])
     workbook.close()
+
+
+    # Create a second Excel file and add a worksheet--with a preformatted table.
+    workbook = xlsxwriter.Workbook('data/erTimingData-table.xlsx')
+    worksheet = workbook.add_worksheet()
+    bold = workbook.add_format({'bold': True})
+    
+    # write column headings
+    methods = ['Lists','Sets','Bitarrays','Setizing','Listizing']
+    baseRow = 3
+    baseCol = 1
+    worksheet.write(1,1,"ER Compare Time Performance (ms)",bold)
+    groupSpace = 20
+    
+    # print method and nodePool header lines
+    for i in range(0,len(methods)):
+        worksheet.write(baseRow-1,baseCol+(i*groupSpace)+3,methods[i].upper(),bold)
+        worksheet.write(baseRow+1,baseCol+(i*groupSpace)+1,'NodePool-->',bold)
+        worksheet.write(baseRow+2,baseCol+(i*groupSpace)+1,'ER Size',bold)
+        for j in range(0,15):      # column headers
+            worksheet.write(baseRow+1,baseCol+(i*groupSpace)+3+j,str(2**((j)+6)),bold)   # nodePool
+            worksheet.write(baseRow+2,baseCol+(i*groupSpace)+3+j,"2**"+str((j)+6),bold)  # log10 nodePool
+        for j in range(0,12):     # row headers
+            worksheet.write(baseRow+j+3,baseCol+(i*groupSpace)+1,str(2**(j+3)),bold)       # erSize
+            worksheet.write(baseRow+j+3,baseCol+(i*groupSpace)+2,"2**"+str(j+3),bold)      # log10 erSize            
+
+    for i in range(0,lenTimeStatsList):
+        item = timeStatsList[i]
+        rowOffset = exponent.index(item['erSize1:'])
+        colOffset = int(exponent.index(item['nodePool'])) - 3
+        if True:
+            print("")
+            print("row/colOffset: ",rowOffset,colOffset)
+            print("row/col: ",baseRow + rowOffset, baseCol + colOffset)
+            print("item: ",item)
+            print("")
+        worksheet.write(baseRow+rowOffset,baseCol+colOffset,item['listResults'][2])        # lists
+        worksheet.write(baseRow+rowOffset,baseCol+groupSpace+colOffset,item['setResults'][2])        # sets
+        worksheet.write(baseRow+rowOffset,baseCol+(2*groupSpace)+colOffset,item['bitArrayResults'][2])   # bitarrays
+        worksheet.write(baseRow+rowOffset,baseCol+(3*groupSpace)+colOffset,item['setizingResults'][0])   # setizing
+        worksheet.write(baseRow+rowOffset,baseCol+(4*groupSpace)+colOffset,item['listizingResults'][0])  # listizing     
+    workbook.close()
+
     
     # create 'data' list for Plotly pivottable (data.py file)
     data = []
