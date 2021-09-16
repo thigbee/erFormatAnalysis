@@ -11,6 +11,9 @@ v1 - Initial cut
                 'er1'  : first_ER
                 'er2'  : second_ER
         formatTypes = [ list of above 'name' keys to use in the anlysis]
+        
+        Note:  thanks to shippo author Wissam Jarjoui for method to recursively calculate the total 
+                space used for a Python object  (get_size)
  
 -------------------
 
@@ -27,6 +30,53 @@ from bitarray import bitarray
 # from fileDialogs import App
 
 
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
+
+
+
+def testList(erSizeList,nodePool,quantityList):
+    ers = []
+    er = []
+    sizes = []
+    sizes.append(["empty er & ers",0,0,sys.getsizeof(er),0,sys.getsizeof(ers),"",""])
+    for i in range(1,quantityList[-1]+1):         #(build a list of er lists)
+        for j in range(1,erSizeList[-1]+1):     #(build an individual er)
+            node = random.randrange(nodePool)
+            er.append(node)
+            if j in erSizeList:
+                sizeItem = ["building an er",j,sys.getsizeof(node),sys.getsizeof(er),"","","",""]
+                print("    i,j,sizeItem: ",i,j,sizeItem)
+                print("    get_size(er): ",get_size(er))
+                sizes.append(sizeItem)
+        ers.append(er)
+        if i in quantityList:
+            erTotal = sys.getsizeof(er) + (j*sys.getsizeof((node))) 
+            ersTotal = sys.getsizeof(ers) + (i*j*sys.getsizeof((node)) + (i * sys.getsizeof(er)))
+            sizeItem = ["added er to ers",j,sys.getsizeof(node),sys.getsizeof(er),len(ers),sys.getsizeof(ers),
+                        erTotal,ersTotal]
+            print("  i,j,sizeItem: ",i,j,sizeItem)
+            print("  get_size(ers): ",get_size(ers))            
+            sizes.append(sizeItem)
+    print("finalSize(ers): ",get_size(ers))
+    return sizes
 
 def buildBasicERs(erSize1,erSize2,nodePool,quantity):
     baseERs1 = []
@@ -241,20 +291,27 @@ def main():
     print("start: ",start)
     print("")
     
-    erSizesList = [8,16,32,64,128,256,512,1024,2048,4096,8192,16384]
+    erSizesList = [8,16,32]   #  ,64,128,256,512,1024,2048,4096,8192,16384]
     nodePoolSizesList = [2**x for x in range(6,21)]
     
+    quantityList = [1,2,4,8,16]   #,32,64,128,256,512,1024]
+    
     initQuantity =  2**16 
-    
-    
-    for i in range(2,8):    #  len(nodePoolSizesList)):
-        for j in range(4,16):
-            quantity = i
 
-            erSize = j
-            nodePool = 64
+    
+    for i in range(0,1):    #  len(nodePoolSizesList)):
+        for j in range(0,1):
             
+            quantity = i
+            erSize = 16384
+            nodePool = 2**20
+
+            sizes = testList(erSizesList,nodePool,quantityList)
+            for i in range(0,len(sizes)):
+                print("sizes (len,nodeSize,erSize,ers,ersSize: ",sizes[i])
             
+            continue 
+        
             # generate base ERs
             baseERs, _ = buildBasicERs(erSize,erSize,nodePool,quantity)
 
