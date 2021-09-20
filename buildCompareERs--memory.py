@@ -11,7 +11,11 @@ v1 - Initial cut
                 'er1'  : first_ER
                 'er2'  : second_ER
         formatTypes = [ list of above 'name' keys to use in the anlysis]
- 
+
+            
+        Note:  thanks to shippo author Wissam Jarjoui for method to recursively calculate the total 
+                space used for a Python object  (get_size)
+                
 -------------------
 
 v1 - This is a variant of the buildCompareERs that calculates the (average) storage
@@ -27,212 +31,55 @@ from bitarray import bitarray
 # from fileDialogs import App
 
 
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
 
-def buildBasicERs(erSize1,erSize2,nodePool,quantity):
-    baseERs1 = []
-    baseERs2 = []
+def buildBasicERs(erSize,nodePool,quantity):
+    baseERs = []
     for i in range(0,quantity):
-        baseERs1.append(random.sample(range(0,nodePool),erSize1))
-        # print("baseERs[",i,"]: ",baseERs1[i])
-        saveQty = max(2,int(erSize1/4))
-        savePlace = random.randrange(erSize1-saveQty)
-        saveNodes = baseERs1[i][savePlace:savePlace+saveQty]
-        # print("saveQty/Place/Nodes: ",saveQty,savePlace,saveNodes)
-        baseERs2.append(saveNodes + random.sample(range(0,nodePool),erSize2-saveQty))
-        # print("baseERs[",i,"]: ",baseERs2[i])
-    return baseERs1,baseERs2
+        baseERs.append(random.sample(range(0,nodePool),erSize))
+    return baseERs
 
-def buildSetizedERs(listERs1,listERs2):
-    overallStartTime = time.time_ns()
-    setERs1 = []
-    setERs2 = []
-    for i in range(0,len(listERs1)):
-        setERs1.append(set(listERs1[i]))
-    for i in range(0,len(listERs2)):
-        setERs2.append(set(listERs2[i]))
-    overallFinishTime = time.time_ns()
-    overallDuration = (overallFinishTime - overallStartTime)   # naonseconds
-    return setERs1,setERs2, overallDuration
+def buildSetizedERs(listERs):
+    setERs = []
+    for i in range(0,len(listERs)):
+        setERs.append(set(listERs[i]))
+    return setERs
 
+def buildSortedListERs(baseERs):
+    sortedERs = []
+    for i in range(0,len(baseERs)):
+        sortedERs.append(sorted(baseERs[i]))
+    return sortedERs
 
-def convertSetizedERs(setERs1,setERs2):    # convert sets to lists--just for evaluation purposes
-    overallStartTime = time.time_ns()
-    listERs1 = []
-    listERs2 = []
-    for i in range(0,len(setERs1)):
-        listERs1.append(list(setERs1[i]))
-    for i in range(0,len(listERs2)):
-        listERs2.append(list(setERs2[i]))
-    overallFinishTime = time.time_ns()
-    overallDuration = (overallFinishTime - overallStartTime)   # naonseconds
-    return overallDuration
-
-def buildSortedListERs(baseERs1,baseERs2):
-    sortedERs1 = []
-    sortedERs2 = []
-    for i in range(0,len(baseERs1)):
-        sortedERs1.append(sorted(baseERs1[i]))
-    for i in range(0,len(baseERs2)):
-        sortedERs2.append(sorted(baseERs2[i]))
-    return sortedERs1,sortedERs2
-
-def buildBitArrayERs(baseERs1,baseERs2,nodePool):
-    bitArrayERs1 = []
-    bitArrayERs2 = []
-    for i in range(0,len(baseERs1)):
+def buildBitArrayERs(baseERs,nodePool):
+    bitArrayERs = []
+    for i in range(0,len(baseERs)):
         bitArray = nodePool * bitarray('0')
-        for item in baseERs1[i]:
+        for item in baseERs[i]:
             bitArray[item] = True
-        bitArrayERs1.append(bitArray)
-    for i in range(0,len(baseERs2)):
-        bitArray = nodePool * bitarray('0')
-        for item in baseERs2[i]:
-            bitArray[item] = True
-        bitArrayERs2.append(bitArray)
-    return bitArrayERs1,bitArrayERs2
-
-
-def compareListERs(listERs1,listERs2):
-    # this routine uses unsorted lists, and 'if short list item in longList'
-    counts = [0 for _ in range(0,len(listERs1))]
-    durations = []
-    overallStartTime = time.time_ns()
-    for i in range(0,len(listERs1)):
-        startTime = time.time_ns()
-        # print("startTime: ",startTime)
-        if len(listERs1[i]) < len(listERs2[i]):
-            shortER = listERs1[i]
-            longER = listERs2[i]
-        else:
-            shortER = listERs2[i]
-            longER = listERs1[i]
-        for item in shortER:
-            if item in longER:
-                counts[i] += 1
-        finishTime = time.time_ns()
-        # print("finishTime: ",finishTime)
-        duration = (finishTime - startTime)    # naonseconds
-        durations.append(duration)
-    overallFinishTime = time.time_ns()
-    overallDuration = (overallFinishTime - overallStartTime)   # naonseconds 
-    return counts,durations,overallDuration
-
-def compareSetERs(setERs1,setERs2):
-    # this routine uses unsorted set, and 'if short set item in longSet'
-    counts = [0 for _ in range(0,len(setERs1))]
-    durations = []
-    overallStartTime = time.time_ns()
-    for i in range(0,len(setERs1)):
-        startTime = time.time_ns()
-        if len(setERs1[i]) < len(setERs2[i]):
-            shortER = setERs1[i]
-            longER = setERs2[i]
-        else:
-            shortER = setERs2[i]
-            longER = setERs1[i]
-        for item in shortER:
-            if item in longER:
-                counts[i] += 1
-        finishTime = time.time_ns()
-        durations.append(finishTime - startTime)     # naonseconds
-    overallFinishTime = time.time_ns()
-    overallDuration = (overallFinishTime - overallStartTime)   # naonseconds            
-    return counts,durations,overallDuration
+        bitArrayERs.append(bitArray)
+    return bitArrayERs
     
-def compareBitArrayERs(bitArrayERs1,bitArrayERs2):
-    counts = []
-    durations = []
-    overallStartTime = time.time_ns()
-    for i in range(0,len(bitArrayERs1)):
-        startTime = time.time_ns()
-        result = bitArrayERs1[i] & bitArrayERs2[i]
-        counts.append(result.count())
-        finishTime = time.time_ns()
-        durations.append(finishTime - startTime)    # naonseconds
-    overallFinishTime = time.time_ns()
-    overallDuration = (overallFinishTime - overallStartTime)   # naonseconds
-    return counts,durations,overallDuration
 
-def binary_search(arr, x,startAt=0):
-    low = startAt
-    high = len(arr) - 1
-    mid = 0
-    steps=0
-    while low <= high:
-        steps += 1
-        mid = (high + low) // 2
-        # If x is greater, ignore left half
-        if arr[mid] < x:
-            low = mid + 1
-        # If x is smaller, ignore right half
-        elif arr[mid] > x:
-            high = mid - 1
-        # means x is present at mid
-        else:
-            # print("steps: ",steps)
-            return mid, mid+1
-    # If we reach here, then the element was not present
-    # print("steps: ",steps)
-    return -1, low
-
-def test_binary_search():
-    # testing binary search algorithms
-    a = [1,2,3,7,8]
-    b = [1,2,5,6,7,9]
-    
-    for item in a:
-        x,newLow = binary_search(b,item,startAt=0)
-        print("item: ",item," x/newLow: ",x,newLow)
-    
-    print("")
-    newLow = 0
-    for item in a:
-        x,newLow = binary_search(b,item,startAt=newLow)
-        print("item: ",item," x/newLow: ",x,newLow)
-        
-        
-def comparePartiallySortedList(baseERs1,sortedERs2):
-    counts = [0 for _ in range(0,len(baseERs1))]
-    durations = []
-    overallStartTime = time.time_ns()
-    for i in range(0,len(baseERs1)): 
-        startTime = time.time_ns()
-        a = baseERs1[i]
-        b = sortedERs2[i]
-        for item in a:
-            x,newLow = binary_search(b,item,startAt=0)
-            if x != -1:
-                counts[i] += 1
-        finishTime = time.time_ns()
-        durations.append(finishTime - startTime)      # naonseconds 
-    overallFinishTime = time.time_ns()
-    overallDuration = (overallFinishTime - overallStartTime)   # naonseconds
-    return counts,durations,overallDuration
- 
-
-def compareSortedList(sortedERs1,sortedERs2):
-    counts = [0 for _ in range(0,len(sortedERs1))]
-    durations = []
-    overallStartTime = time.time_ns()
-    for i in range(0,len(sortedERs1)): 
-        startTime = time.time_ns()
-        a = sortedERs1[i]
-        b = sortedERs2[i]
-        newLow = 0
-        for item in a:
-            x,newLow = binary_search(b,item,startAt=newLow)
-            if x != -1:
-                counts[i] += 1
-        finishTime = time.time_ns()
-        durations.append(finishTime - startTime)      # naonseconds 
-    overallFinishTime = time.time_ns()
-    overallDuration = (overallFinishTime - overallStartTime)   # naonseconds
-    return counts,durations,overallDuration 
-
-
-     
 #########################################################################################
-
 
 def main():
     
@@ -241,254 +88,128 @@ def main():
     print("start: ",start)
     print("")
     
-    
-    
-  
-    erSizesList = [8,16,32,64,128,256,512,1024,2048,4096,8192,16384]
-    nodePoolSizesList = [2**x for x in range(6,21)]
-    
-    erDict = {}
-    initQuantity =  2**16
+    erSizesList = [64,256,1024,4096,16384]   #8,16,
+    nodePoolSizesList = [2**10,2**16]    #[2**6,2**14,2**20 ]
+    quantityList = [4,64,1024]   #[1,4,16,64,256,1024,4096]
+
     
     resultsList = []
+    erDict = {}
     
     # generate file name for results    fileTime= datetime.datetime.now()
     fileTime= datetime.datetime.now()   
     timeId = fileTime.strftime("%y%m%d-%H%M%S")
-    timingResults_fileName = 'data/timingResults-erCompare-'+timeId+'.trecPkl'
-    
+    sizingResults_fileName = 'data/sizingResults-erFormat-'+timeId+'.srefPkl'
+ 
+    # perform testing for lists, sorted lists, and sets
     for i in range(0,len(erSizesList)):
+        erSize = erSizesList[i]
+        
         for j in range(0,len(nodePoolSizesList)):
-    
-
-
-            print("  i/j: ",i,j)
-            print("  len(erSizesList),len(nodPoolSizesList): ",len(erSizesList),len(nodePoolSizesList))
-            erSize1 = erSizesList[i]
-            erSize2 = erSizesList[i]
             nodePool = nodePoolSizesList[j]
             
-
-            
-            if erSize1 >= nodePool:
+            if erSize > nodePool:
                 continue
-            print("")
-            print("Start new iteration")
-            print("  erSize1/2,nodePool: ",erSize1,erSize2,nodePool)
             
-            # reduce quantity as  the erSize and/or the nodePool increase
-            erFactor = max(1,int(erSize1/erSizesList[0]/2))
-            print("  erFactor: ",erFactor)
-            npFactor = int(nodePool/nodePoolSizesList[0])
-            print("  npFactor: ",npFactor)
-            quantity = max(1000,int(initQuantity / erFactor / npFactor))
-            print("  calculated quantity: ",quantity)
+            for k in range(0,len(quantityList)):
+                quantity = quantityList[k]
+                currentTime = datetime.datetime.now()
+                currentTimeId = currentTime.strftime("%y%m%d-%H%M%S")
+                print("")
+                print("Start new iteration")
+                print("  currentTime: ",currentTimeId)
 
-            dictItem = {'erSize1:':erSize1,'erSize2':erSize2,'nodePool':nodePool,'quantity':quantity}            
-    
+                dictItem = {'erSize1:':erSize,'nodePool':nodePool,'quantity':quantity}            
+                print("  ",dictItem)
         
-            # generate base ERs
-            baseERs1, baseERs2 = buildBasicERs(erSize1,erSize2,nodePool,quantity)
-            erDict['uoListERs'] = {'description':'unordered lists of nodes', \
-                                 'lengths':[erSize1,erSize2],'nodePool':nodePool, \
-                                 'ers':[baseERs1,baseERs2]}
-            
-            # sorted List ERs
-            sortedERs1,sortedERs2 = buildSortedListERs(baseERs1,baseERs2)
-            erDict['oListERs'] = {'description':'ordered lists of nodes',\
-                                 'lengths':[erSize1,erSize2],'nodePool':nodePool,\
-                                 'ers': [sortedERs1,sortedERs2]}  
-                   
-            # setized ERs
-            setERs1, setERs2, overallDuration = buildSetizedERs(baseERs1,baseERs2)
-            erDict['setERs'] = {'description':'sets of nodes',\
-                                 'lengths':[erSize1,erSize2],'nodePool':nodePool,\
-                                 'ers': [setERs1,setERs2]}    
-            # averageDuration = (overallDuration/quantity/1000000)/2     # divide by two because there are two sets lists being converted
-            # print("")
-            # print("Convert Lists to Sets")
-            # print("  overallDuration/quantity(ms): ",overallDuration/1000000/2, quantity)
-            # print("  averageDuration(ms): ",averageDuration)
-            # dictItem['setizingResults'] = [averageDuration]
-        
-        
-            # convert sets to list (for analysis purposes--the lists are not used)
-            # overallDuration = convertSetizedERs(setERs1,setERs2)
-            # averageDuration = (overallDuration/quantity/1000000)/2     # divide by two because there are two sets lists being converted
-            # print("")
-            # print("Convert Sets to Lists")
-            # print("  overallDuratio(ms)n/quantity: ",overallDuration/1000000/2, quantity)
-            # print("  averageDuration(ms): ",averageDuration)        
-            # dictItem['listizingResults'] = [averageDuration]    
-                
-        
-            # binary array ERs
-            bitArrayERs1, bitArrayERs2 = buildBitArrayERs(baseERs1,baseERs2,nodePool)
-            erDict['bArrayERs'] = {'description':'bitArrays',\
-                                 'lengths':[erSize1,erSize2],'nodePool':nodePool,\
-                                 'ers': [bitArrayERs1,bitArrayERs2]} 
+                # generate base ERs
+                baseERs = buildBasicERs(erSize,nodePool,quantity)
+                dictItem['uoListERs'] = {'description':'unordered lists of nodes', \
+                                     'lengths':[erSize],'nodePool':nodePool, \
+                                     'quantity':quantity, \
+                                     'memorySpace':get_size(baseERs)}                
+                # sorted List ERs
+                sortedERs = buildSortedListERs(baseERs)
+                dictItem['oListERs'] = {'description':'ordered lists of nodes',\
+                                     'lengths':[erSize],'nodePool':nodePool,\
+                                     'quantity':quantity, \
+                                     'memorySpace':get_size(sortedERs)}  
+                     
+                # setized ERs
+                setERs = buildSetizedERs(baseERs)
+                dictItem['setERs'] = {'description':'sets of nodes',\
+                                     'lengths':[erSize],'nodePool':nodePool,\
+                                     'quantity':quantity, \
+                                     'memorySpace':get_size(setERs)}      
               
-            # print("erDict: ",erDict)
-             
-            startComps = datetime.datetime.now()
-            print("")
-            print("startComparisons at: ",startComps)
-            print("  ersizes: ",erSize1,erSize2)
-            print("  nodePool: ",nodePool)
-            print("  quantity: ",quantity)
-        
-            # normal list compare
-            # counts,durations,overallDuration = compareListERs(baseERs1,baseERs2)
-            lenBaseERs1 = len(baseERs1)
-            totalSize = sys.getsizeof(baseERs1)
-            summedSize = 0
-            meanSize = totalSize/quantity
-            individualSize = sys.getsizeof(baseERs1[0])
-            individualNodeSize = sys.getsizeof(baseERs1[0][0])
-            oneNode = baseERs1[0][0]
-            oneNodeSize = sys.getsizeof(oneNode)
-            totalNodeSize = 0
-            for k in range(0,len(baseERs1[0])):
-                totalNodeSize += sys.getsizeof(baseERs1[0][k])
-            totalShouldBe = individualSize * quantity 
-            # averageDuration = overallDuration/quantity/1000000
-            # stdevDuration = stdev(durations)/1000000
-            print("")
-            print("list ER sizes")
-            print("  quantity: ",quantity)
-            print("  lenBaseERs1: ",lenBaseERs1)
-            print("  totalSize: ",totalSize)
-            print("  meanSize: ",meanSize)
-            print("  individualSize: ",individualSize)
-            print("  erSize (nodes): ",erSize1)
-            print("  len(baseERs1[0]:",len(baseERs1[0]))
-            print("  individualNodeSize: ",individualNodeSize)
-            print("  totalNodeSize: ",totalNodeSize)
-            print("  individualNodeType: ",type(baseERs1[0][0]))
-            print("  totalShouldBe: ",totalShouldBe)
-            print("  oneNodeSize: ",oneNodeSize)
-            print("")
-            sizes = []
-            for k in range(0,quantity):
-                itemSize = sys.getsizeof(baseERs1[k])
-                sizes.append(itemSize)
-                summedSize += itemSize
-                # if itemSize != 128:
-                #     print("list sizse that are not 128 bytes: ",k,sys.getsizeof(sys.getsizeof(baseERs1[i])))
-            # print("sizes: ",sizes[0:1000])
-            print("summedSize/quantity: ",summedSize,quantity)
-            print("averageSize: ",summedSize/quantity)
-            meanSizes = mean(sizes)
-            stdevSizes = stdev(sizes)
-            print("  meanSizes: ",meanSizes)
-            print("  stdevSizes: ",stdevSizes)
-            # print("  averageDuration(ms): ",averageDuration)
-            
-            
-            
-            continue
-            
-            
-            
-            dictItem['listResults'] = [meanDuration,stdevDuration,averageDuration]
-            
-            
-            # set compare
-            # counts,durations,overallDuration = compareSetERs(setERs1,setERs2)
-            meanDuration =mean(durations)/1000000
-            averageDuration = overallDuration/quantity/1000000
-            stdevDuration = stdev(durations)/1000000
-            print("")
-            print("Set ER dot-product")
-            # print("counts/durations(ns): ",counts,durations)
-            print("  overallDuration(ms)/quantity: ",overallDuration/1000000, quantity)
-            print("  meanDuration(ms): ",meanDuration)
-            print("  stdevDuration(ms): ",stdevDuration)
-            print("  averageDuration(ms): ",averageDuration)   
-            dictItem['setResults'] = [meanDuration,stdevDuration,averageDuration]
-            
-            
-            # partially sorted list compare - er1 non-sorted, er2 sorted; binary search
-            # counts,durations,overallDuration = comparePartiallySortedList(baseERs1,sortedERs2)
-            meanDuration =mean(durations)/1000000
-            averageDuration = overallDuration/quantity/1000000
-            stdevDuration = stdev(durations)/1000000
-            print("")
-            print("Partially Sorted ER dot-product")
-            # print("counts/durations(ns): ",counts,durations)
-            print("  overallDuration(ms)/quantity: ",overallDuration/1000000, quantity)
-            print("  meanDuration(ms): ",meanDuration)
-            print("  stdevDuration(ms): ",stdevDuration)
-            print("  averageDuration(ms): ",averageDuration)      
-            dictItem['partiallySortedListResults'] = [meanDuration,stdevDuration,averageDuration] 
-            
-            
-            # sorted list compare - er1 sorted, er2 sorted; modified binary search
-            # counts,durations,overallDuration = compareSortedList(sortedERs1,sortedERs2)
-            meanDuration =mean(durations)/1000000
-            averageDuration = overallDuration/quantity/1000000
-            stdevDuration = stdev(durations)/1000000
-            print("")
-            print("Sorted ER dot-product")
-            # print("counts/durations(ns): ",counts,durations)
-            print("  overallDuration(ms)/quantity: ",overallDuration/1000000, quantity)
-            print("  meanDuration(ms): ",meanDuration)
-            print("  stdevDuration(ms): ",stdevDuration)
-            print("  averageDuration(ms): ",averageDuration)  
-            dictItem['sortedListResults'] = [meanDuration,stdevDuration,averageDuration]    
-            
-            # bitarray compare  -- these are very very quick--so if less than 1,000, repeat loops
-            totalOverallDuration = 0
-            iterations = 0
-            allCounts = []
-            allDurations = []
-            while iterations < 100000:
-                iterations += quantity
-                counts,durations,overallDuration = compareBitArrayERs(bitArrayERs1,bitArrayERs2)
-                allCounts.extend(counts)
-                allDurations.extend(durations)
-                totalOverallDuration += overallDuration
+                print("dictItem: ",dictItem)
+                resultsList.append(dictItem)
                 
-            meanDuration = mean(allDurations)/1000000
-            stdevDuration = stdev(allDurations)/1000000
-            averageDuration = totalOverallDuration/iterations/1000000
+                # write results to file
+                print("")
+                print("Writing sizingResults pickle file: ",sizingResults_fileName)
+                       
+                afile = open(sizingResults_fileName, 'wb')
+                pickle.dump(resultsList, afile)
+                
+                afile.close()
+                print("")
+                print("Finished writing a sizingResults pickle file: ",sizingResults_fileName) 
+                print("")
+                print("")
 
-            print("")
-            print("Bitarray ER dot-product")
-            # print("counts/durations(ns): ",counts,durations)
-            print("  overallDuration(ms)/quantity: ",totalOverallDuration/1000000, iterations)
-            print("  meanDuration(ms): ",meanDuration)
-            print("  stdevDuration(ms): ",stdevDuration)
-            print("  averageDuration(ms): ",averageDuration)   
-            dictItem['bitArrayResults'] = [meanDuration,stdevDuration,averageDuration]
-            
-            
-            
-            print("")
-            print("startComps: ",startComps)
-            finish = datetime.datetime.now()
-            print("finish: ",finish)
-            duration = finish - startComps
-            print("duration: ",duration)
+
+    erSizesList = [64,256,1024,4096,16384]      #  [64,1024,16384]   #8,16,
+    nodePoolSizesList = [2**10,2**16]  #[2**6,2**14,2**20]
+    quantityList = [4,64,1024]   #[1,4,16,64,256,1024,4096]
     
-            resultsList.append(dictItem)
-    
-            print("resultsList: ",resultsList)
+    for i in range(0,len(erSizesList)):
+        erSize = erSizesList[i]
+        
+        for j in range(0,len(nodePoolSizesList)):
+            nodePool = nodePoolSizesList[j]
+            if erSize > nodePool:
+                continue
             
-            
-            # write results to file
-            print("")
-            print("Writing timingResults pickle file: ",timingResults_fileName)
-                   
-            afile = open(timingResults_fileName, 'wb')
-            pickle.dump(resultsList, afile)
-            
-            afile.close()
-            print("")
-            print("Finished writing a timingResults pickle file: ",timingResults_fileName) 
-            print("")
-            print("")
-    
+            for k in range(0,len(quantityList)):
+                quantity = quantityList[k]
+                currentTime = datetime.datetime.now()
+                currentTimeId = currentTime.strftime("%y%m%d-%H%M%S")
+                print("")
+                print("Start new iteration")
+                print("  currentTime: ",currentTimeId)
+
+                dictItem = {'erSize1:':erSize,'nodePool':nodePool,'quantity':quantity}            
+                print("  ",dictItem)
+                
+                # build the base ERs list for the subequent encoding to bitarray
+                baseERs = buildBasicERs(erSize,nodePool,quantity)
+                
+                # binary array ERs
+                bitArrayERs = buildBitArrayERs(baseERs,nodePool)
+                dictItem['bArrayERs'] = {'description':'bitArrays',\
+                                      'lengths':[erSize],'nodePool':nodePool,\
+                                      'quantity':quantity, \
+                                      'memorySpace': get_size(bitArrayERs)} 
+              
+                # print("erDict: ",erDict)
+                resultsList.append(dictItem)
+        
+                print("resultsList: ",resultsList) 
+                
+                # write results to file
+                print("")
+                print("Writing sizingResults pickle file: ",sizingResults_fileName)
+                       
+                afile = open(sizingResults_fileName, 'wb')
+                pickle.dump(resultsList, afile)
+                
+                afile.close()
+                print("")
+                print("Finished writing a sizingResults pickle file: ",sizingResults_fileName) 
+                print("")
+                print("")
+        
     print("done")
     print("")
     return

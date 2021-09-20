@@ -291,32 +291,39 @@ def main():
     print("start: ",start)
     print("")
     
-    erSizesList = [8,16,32]   #  ,64,128,256,512,1024,2048,4096,8192,16384]
-    nodePoolSizesList = [2**x for x in range(6,21)]
-    
-    quantityList = [1,2,4,8,16]   #,32,64,128,256,512,1024]
+    erSizesList = [8,16,32,64]   #,128,256,512,1024,2048,4096,8192,16384]
+    # nodePoolSizesList = [2**x for x in range(6,21)]
+    nodePoolSizesList = [2**x for x in range(6,10)]
+    quantityList = [1,16,256]   #,1024,4096]
     
     initQuantity =  2**16 
+    sizeResults = []
 
     
-    for i in range(0,1):    #  len(nodePoolSizesList)):
-        for j in range(0,1):
+    for i in range(0,len(nodePoolSizesList)):
+        for j in range(0,len(erSizesList)):
             
-            quantity = i
-            erSize = 16384
-            nodePool = 2**20
-
-            sizes = testList(erSizesList,nodePool,quantityList)
-            for i in range(0,len(sizes)):
-                print("sizes (len,nodeSize,erSize,ers,ersSize: ",sizes[i])
+            for k in range(0,len(quantityList)):
+                quantity = quantityList[k]
+                erSize = erSizesList[j]
+                nodePool = nodePoolSizesList[i]
+                
+                if erSize > nodePool:
+                    continue
+                
+                print("  erSize,nodePool,quantity: ",erSize,nodePool,quantity)
             
-            continue 
-        
-            # generate base ERs
-            baseERs, _ = buildBasicERs(erSize,erSize,nodePool,quantity)
+                # generate base ERs
+                baseERs1, baseERs2 = buildBasicERs(erSize,erSize,nodePool,quantity)
+    
+                size1 = get_size(baseERs1)
+                size2 = get_size(baseERs2)
+                sizeItem = [nodePool,erSize,quantity,size1,size2]
+                print("  nodePool,erSize,quantity,size1,size2: ",sizeItem)
+                sizeResults.append(sizeItem)
 
-            
 
+            continue
              
             startComps = datetime.datetime.now()
             print("")
